@@ -1,0 +1,251 @@
+@page "/"
+@inject NavigationManager Navigation
+
+<PageTitle>NChat</PageTitle>
+
+@if (!string.IsNullOrWhiteSpace(_error))
+{
+    <p class="error">@_error</p>
+}
+
+@if (string.IsNullOrWhiteSpace(_username))
+{
+    <section>
+        <h2>Choose Username</h2>
+        <input @bind="_usernameInput" placeholder="Unique username" />
+        <button @onclick="ClaimUsernameAsync">Continue</button>
+    </section>
+}
+else
+{
+    <section class="grid">
+        <div>
+            <h2>Rooms</h2>
+            <input @bind="_newRoomName" placeholder="Create room" />
+            <button @onclick="CreateRoomAsync">Create</button>
+
+            <ul>
+                @foreach (var room in _rooms)
+                {
+                    <li>
+                        <button @onclick="() => JoinRoomAsync(room.Id)">@room.Name (@room.UserCount)</button>
+                    </li>
+                }
+            </ul>
+        </div>
+
+        <div>
+            <h2>Current Room</h2>
+            @if (_currentRoomId.HasValue)
+            {
+                <p>@_currentRoomName</p>
+
+                <h3>Users</h3>
+                <ul>
+                    @foreach (var user in _presence)
+                    {
+                        <li>@user.Username</li>
+                    }
+                </ul>
+
+                <h3>Messages</h3>
+                <div class="messages">
+                    @foreach (var message in _messages)
+                    {
+                        <p><strong>@message.Username</strong>: @message.Content</p>
+                    }
+                </div>
+
+                <input @bind="_messageInput" placeholder="Type a message" />
+                <button @onclick="SendMessageAsync">Send</button>
+            }
+            else
+            {
+                <p>Join a room to chat.</p>
+            }
+        </div>
+    </section>
+}
+
+@code {
+    private HubConnection? _hubConnection;
+    private HttpClient? _http;
+
+    private string? _username;
+    private string _usernameInput = string.Empty;
+    private string _newRoomName = string.Empty;
+    private string _messageInput = string.Empty;
+    private string? _error;
+    private Guid? _currentRoomId;
+    private string _currentRoomName = string.Empty;
+
+    private List<RoomSummaryDto> _rooms = [];
+    private List<PresenceUserDto> _presence = [];
+    private List<MessageDto> _messages = [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        _http = new HttpClient { BaseAddress = new Uri(Navigation.BaseUri) };
+        _hubConnection = new HubConnectionBuilder()
+            .WithUrl(Navigation.ToAbsoluteUri("/hubs/chat"))
+            .WithAutomaticReconnect()
+            .Build();
+
+        _hubConnection.On<IEnumerable<RoomSummaryDto>>("RoomsChanged", rooms =>
+        {
+            _rooms = rooms.OrderBy(x => x.Name).ToList();
+            InvokeAsync(StateHasChanged);
+        });
+
+        _hubConnection.On<Guid, IEnumerable<PresenceUserDto>>("RoomPresenceChanged", (roomId, users) =>
+        {
+            if (_currentRoomId == roomId)
+            {
+                _presence = users.OrderBy(x => x.Username).ToList();
+                InvokeAsync(StateHasChanged);
+            }
+        });
+
+        _hubConnection.On<MessageDto>("RoomMessagePosted", message =>
+        {
+            if (_currentRoomId == message.RoomId)
+            {
+                _messages.Add(message);
+                InvokeAsync(StateHasChanged);
+            }
+        });
+
+        _hubConnection.On<string>("HubError", message =>
+        {
+            _error = message;
+            InvokeAsync(StateHasChanged);
+        });
+
+        _hubConnection.On<bool, string?>("NameClaimResult", (ok, reason) =>
+        {
+            if (!ok)
+            {
+                _error = reason ?? "Username is already in use.";
+                _username = null;
+            }
+
+            InvokeAsync(StateHasChanged);
+        });
+
+        await _hubConnection.StartAsync();
+        await RefreshRoomsAsync();
+    }
+
+    private async Task ClaimUsernameAsync()
+    {
+        if (_hubConnection is null || _http is null)
+        {
+            return;
+        }
+        if (string.IsNullOrWhiteSpace(_hubConnection.ConnectionId))
+        {
+            _error = "SignalR connection is not ready yet.";
+            return;
+        }
+
+        _error = null;
+        using var request = new HttpRequestMessage(HttpMethod.Post, "/api/session/claim-name")
+        {
+            Content = JsonContent.Create(new { Username = _usernameInput })
+        };
+        request.Headers.Add("x-connection-id", _hubConnection.ConnectionId);
+        var response = await _http.SendAsync(request);
+
+        if (!response.IsSuccessStatusCode)
+        {
+            _error = "Failed to claim username.";
+            return;
+        }
+
+        await _hubConnection.InvokeAsync("SetUsername", _usernameInput);
+        _username = _usernameInput.Trim();
+        await RefreshRoomsAsync();
+    }
+
+    private async Task CreateRoomAsync()
+    {
+        if (_http is null || string.IsNullOrWhiteSpace(_username))
+        {
+            return;
+        }
+
+        _error = null;
+        using var request = new HttpRequestMessage(HttpMethod.Post, "/api/rooms")
+        {
+            Content = JsonContent.Create(new { Name = _newRoomName })
+        };
+        request.Headers.Add("x-username", _username);
+
+        var response = await _http.SendAsync(request);
+        if (!response.IsSuccessStatusCode)
+        {
+            _error = "Failed to create room.";
+            return;
+        }
+
+        _newRoomName = string.Empty;
+        await RefreshRoomsAsync();
+    }
+
+    private async Task JoinRoomAsync(Guid roomId)
+    {
+        if (_hubConnection is null)
+        {
+            return;
+        }
+
+        await _hubConnection.InvokeAsync("JoinRoom", roomId);
+        _currentRoomId = roomId;
+        _currentRoomName = _rooms.FirstOrDefault(x => x.Id == roomId)?.Name ?? string.Empty;
+
+        await LoadMessagesAsync(roomId);
+        await LoadPresenceAsync(roomId);
+    }
+
+    private async Task SendMessageAsync()
+    {
+        if (_hubConnection is null || string.IsNullOrWhiteSpace(_messageInput))
+        {
+            return;
+        }
+
+        await _hubConnection.InvokeAsync("SendMessage", _messageInput);
+        _messageInput = string.Empty;
+    }
+
+    private async Task RefreshRoomsAsync()
+    {
+        if (_http is null)
+        {
+            return;
+        }
+
+        var rooms = await _http.GetFromJsonAsync<List<RoomSummaryDto>>("/api/rooms") ?? [];
+        _rooms = rooms.OrderBy(x => x.Name).ToList();
+    }
+
+    private async Task LoadPresenceAsync(Guid roomId)
+    {
+        if (_http is null)
+        {
+            return;
+        }
+
+        _presence = await _http.GetFromJsonAsync<List<PresenceUserDto>>($"/api/rooms/{roomId}/presence") ?? [];
+    }
+
+    private async Task LoadMessagesAsync(Guid roomId)
+    {
+        if (_http is null)
+        {
+            return;
+        }
+
+        _messages = await _http.GetFromJsonAsync<List<MessageDto>>($"/api/rooms/{roomId}/messages?take=100") ?? [];
+    }
+}
