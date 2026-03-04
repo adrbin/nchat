@@ -18,9 +18,7 @@ builder.Services.AddRazorComponents()
 
 builder.Services.AddSignalR();
 
-var connectionString = builder.Configuration.GetConnectionString("nchatdb")
-    ?? builder.Configuration.GetConnectionString("nchat")
-    ?? "Host=localhost;Port=5432;Database=nchat;Username=postgres;Password=postgres";
+var connectionString = builder.Configuration.GetConnectionString("nchatdb");
 
 builder.Services.AddDbContext<NChatDbContext>(options => options.UseNpgsql(connectionString));
 

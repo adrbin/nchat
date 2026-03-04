@@ -30,6 +30,10 @@ NChat is a pragmatic real-time chat application built with Aspire, .NET 10, Blaz
    - `dotnet run --project src/NChat.AppHost`
 3. Open the Aspire dashboard and start the `web` project.
 
+## PostgreSQL Credentials in Local Aspire
+- AppHost reads `Parameters:postgres-password` from configuration, and local development sets it in [`src/NChat.AppHost/Properties/launchSettings.json`](src/NChat.AppHost/Properties/launchSettings.json) as `Parameters__postgres-password=postgres`.
+- If you previously initialized the `nchat-postgres-data` volume with different credentials, remove that volume once and re-run AppHost so Postgres re-initializes with the current settings.
+
 ## Test
 - `dotnet test NChat.sln`
 

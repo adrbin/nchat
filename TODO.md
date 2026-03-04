@@ -2,6 +2,7 @@
 
 ## Current Focus
 - Unblock package restore in a network-enabled environment, then run full build and test verification.
+- Keep local Aspire Postgres credentials stable when using persisted Docker volume.
 
 ## Blockers
 - Sandbox cannot reach NuGet (`https://api.nuget.org/v3/index.json`), so restore/build/test cannot be executed in this session.
@@ -61,8 +62,15 @@
   - Notes: Blocked by sandbox network resolution failure for NuGet.
   - Done criteria: `dotnet restore`, `dotnet build`, and `dotnet test` pass locally.
 
+- [x] T-009 Stabilize Aspire Postgres credentials for local data volume
+  - Status: done
+  - Linked tests: `tests/NChat.Application.Tests/AppHostConfigurationTests.cs`
+  - Notes: AppHost now resolves `postgres-password` from configuration (`Parameters:postgres-password`) and local launch settings provide `Parameters__postgres-password=postgres`.
+  - Done criteria: AppHost config enforces explicit, configuration-driven password while using `.WithDataVolume(...)`.
+
 ## Completed In This Session
 - Created full solution and project structure.
 - Implemented domain, application, infrastructure, API, SignalR hub, and Blazor UI.
 - Added domain/application/integration test suites.
 - Wired Aspire AppHost + PostgreSQL resource reference.
+- Added a regression test and fixed AppHost Postgres password configuration for local persisted volume scenarios.

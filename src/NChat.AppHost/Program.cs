@@ -1,7 +1,12 @@
 var builder = DistributedApplication.CreateBuilder(args);
 
+var postgresPassword = builder.AddParameterFromConfiguration(
+    "postgres-password",
+    "Parameters:postgres-password",
+    secret: true);
+
 var postgres = builder
-    .AddPostgres("postgres")
+    .AddPostgres("postgres", password: postgresPassword)
     .WithDataVolume("nchat-postgres-data");
 
 var nchatDb = postgres.AddDatabase("nchatdb");

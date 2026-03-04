@@ -10,7 +10,8 @@
         "ASPNETCORE_URLS": "http://127.0.0.1:17000",
         "ASPIRE_ALLOW_UNSECURED_TRANSPORT": "true",
         "ASPIRE_DASHBOARD_OTLP_ENDPOINT_URL": "http://127.0.0.1:4317",
-        "ASPIRE_DASHBOARD_OTLP_HTTP_ENDPOINT_URL": "http://127.0.0.1:4318"
+        "ASPIRE_DASHBOARD_OTLP_HTTP_ENDPOINT_URL": "http://127.0.0.1:4318",
+        "Parameters__postgres-password": "postgres"
       }
     }
   }
