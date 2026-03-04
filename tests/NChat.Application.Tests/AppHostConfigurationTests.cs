@@ -6,6 +6,15 @@ namespace NChat.Application.Tests;
 public sealed class AppHostConfigurationTests
 {
     [Fact]
+    public void WebApp_ShouldRenderRoutesWithInteractiveServerMode()
+    {
+        var appRazorPath = Path.Combine(GetRepositoryRoot(), "src", "NChat.Web", "Components", "App.razor");
+        var appRazorSource = File.ReadAllText(appRazorPath);
+
+        appRazorSource.Should().Contain("<Routes @rendermode=\"InteractiveServer\" />");
+    }
+
+    [Fact]
     public void AppHost_ShouldConfigureExplicitPostgresPassword_WhenUsingDataVolume()
     {
         var programPath = Path.Combine(GetRepositoryRoot(), "src", "NChat.AppHost", "Program.cs");

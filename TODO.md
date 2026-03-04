@@ -68,9 +68,16 @@
   - Notes: AppHost now resolves `postgres-password` from configuration (`Parameters:postgres-password`) and local launch settings provide `Parameters__postgres-password=postgres`.
   - Done criteria: AppHost config enforces explicit, configuration-driven password while using `.WithDataVolume(...)`.
 
+- [x] T-010 Fix main page username continue action
+  - Status: done
+  - Linked tests: `tests/NChat.Application.Tests/AppHostConfigurationTests.cs`
+  - Notes: Added a regression test requiring interactive server render mode in `App.razor`; set `@rendermode="InteractiveServer"` on `HeadOutlet` and `Routes`.
+  - Done criteria: username "Continue" click triggers component event handlers on the main page.
+
 ## Completed In This Session
 - Created full solution and project structure.
 - Implemented domain, application, infrastructure, API, SignalR hub, and Blazor UI.
 - Added domain/application/integration test suites.
 - Wired Aspire AppHost + PostgreSQL resource reference.
 - Added a regression test and fixed AppHost Postgres password configuration for local persisted volume scenarios.
+- Added a regression test and fixed main-page interactivity wiring for username claim flow.
